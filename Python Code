@@ -1,0 +1,65 @@
+import speech_recognition as sr 
+import pyttsx3
+import openai
+
+# Importante generar una API KEY en la pagina web de openai y colocarla dentro de las comillas de la linea 6
+openai.api_key = "API KEY HERE"
+
+engine = pyttsx3.init()
+voices = engine.getProperty('voices')
+engine.setProperty('voice', voices[1].id)
+
+r = sr.Recognizer()
+mic = sr.Microphone(device_index=1)
+
+conversation = ""
+user_name = "Dany"
+bot_name = "Bruce Wayne"
+
+def users(user_name, bot_name, user_input):
+    prompt = "{}: {}\n{}:".format(user_name, user_input, bot_name)
+    return prompt
+
+while True:
+    with mic as source:
+        print("\nListening...")
+        r.adjust_for_ambient_noise(source, duration=0.2)
+        audio = r.listen(source)
+        print("No longer listening")
+
+    try:
+        user_input = r.recognize_google(audio)
+        print(f"{user_name}: {user_input}")
+    except sr.UnknownValueError:
+        print("Could not understand audio")
+        continue
+    except sr.RequestError as e:
+        print(f"Could not request results from Google Speech Recognition service; {e}")
+        continue
+
+    prompt = users(user_name, bot_name, user_input)
+    conversation += prompt
+
+    response = openai.Completion.create(
+        model="text-davinci-003",
+        prompt=conversation,
+        temperature=0.7,
+        max_tokens=256,
+        top_p=1,
+        frequency_penalty=0,
+        presence_penalty=0
+    )
+
+    response_srt = response["choices"][0]["text"].replace("\n","")
+    response_srt = response_srt.partition(bot_name + ":")[2]
+
+    print(f"{bot_name}: {response_srt}")
+    conversation += f"{bot_name}: {response_srt}\n"
+
+    engine.say(response_srt)
+    engine.runAndWait()
+
+    # Agrega una forma de salir del bucle infinito
+    stop = input("Presiona 'q' para salir o cualquier otra tecla para continuar: ")
+    if stop.lower() == "q":
+        break
